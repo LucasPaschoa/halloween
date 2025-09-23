@@ -57,6 +57,21 @@
     .dot.free{background:#e5e8f0}
     details summary{cursor:pointer;font-weight:600}
     .hint{font-size:12px;color:#64748b}
+    /* --- Admin pequeno (FAB) --- */
+.admin-fab{
+  position:fixed;right:18px;bottom:18px;z-index:999;
+  border-radius:999px;padding:12px 14px;font-weight:700;
+  box-shadow:0 6px 16px rgba(0,0,0,.2)
+}
+#adminPanel{
+  position:fixed;right:18px;bottom:70px;z-index:998;background:#fff;
+  border:1px solid #e5e8f0;border-radius:12px;padding:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.15);width:280px;display:none
+}
+#adminPanel .row{gap:8px}
+#adminPanel input{padding:8px}
+#adminPanel h4{margin:0 0 8px 0}
+
   </style>
 </head>
 <body>
@@ -191,6 +206,34 @@
       <p class="hint">Sem Firebase, a página ainda funciona, mas o bloqueio é apenas local (no navegador de quem está escolhendo). Para evento real, recomendamos ativar o Firebase.</p>
     </details>
   </section>
+<!-- Botão Admin + Painel compacto -->
+<button id="adminFab" class="btn admin-fab" title="Admin">Admin</button>
+<div id="adminPanel" class="card">
+  <h4>Admin</h4>
+  <div class="row">
+    <div>
+      <label>Senha</label>
+      <input id="adminPwd" type="password" placeholder="halloween-2025">
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>Vender números (ex.: 5, 12-15)</label>
+      <input id="adminSell" placeholder="números">
+    </div>
+  </div>
+  <div class="row">
+    <div>
+      <label>Liberar números (ex.: 7, 20-22)</label>
+      <input id="adminFree" placeholder="números">
+    </div>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <button id="adminDoSell" class="btn">Marcar VENDIDO</button>
+    <button id="adminDoFree" class="btn danger">Liberar</button>
+  </div>
+  <p class="hint">Senha única: <code class="k">halloween-2025</code></p>
+</div>
 
   <footer>
     <small>Feito com ❤ para o Halloween da Azul Cargo. | Suporte: atualize o preço e a chave PIX nas configurações.</small>
@@ -215,7 +258,7 @@
 
   // Cole aqui sua configuração do Firebase Web (se usar)
   window.FIREBASE_CONFIG = {
-   apiKey: "AIzaSyC2K7gQ71_GLMjxU14TxyVUbWnoLViovIc",
+    apiKey: "AIzaSyC2K7gQ71_GLMjxU14TxyVUbWnoLViovIc",
     authDomain: "azulcargo-halloween.firebaseapp.com",
     projectId: "azulcargo-halloween",
     storageBucket: "azulcargo-halloween.firebasestorage.app",
@@ -433,6 +476,76 @@
   document.getElementById('finishBtn').addEventListener('click', ()=>{
     alert('Obrigado! Guarde seus comprovantes. Os números serão validados pela organização.');
   });
+// ======== ADMIN: funções simples ========
+const adminFab = document.getElementById('adminFab');
+const adminPanel = document.getElementById('adminPanel');
+const adminPwd = document.getElementById('adminPwd');
+const adminSell = document.getElementById('adminSell');
+const adminFree = document.getElementById('adminFree');
+const adminDoSell = document.getElementById('adminDoSell');
+const adminDoFree = document.getElementById('adminDoFree');
+const ADMIN_PASS = 'halloween-2025';
+
+function parseRangesSimple(text){
+  const out = new Set();
+  (text||'').split(',').map(s=>s.trim()).filter(Boolean).forEach(chunk=>{
+    const m = chunk.match(/^(\d+)(?:-(\d+))?$/);
+    if(!m) return;
+    const a = parseInt(m[1],10);
+    const b = m[2] ? parseInt(m[2],10) : a;
+    const start = Math.min(a,b), end = Math.max(a,b);
+    for(let n=start;n<=end;n++) if(n>=1 && n<=TOTAL_NUMBERS) out.add(n);
+  });
+  return [...out];
+}
+
+// Escreve no Firebase (se ativo) ou só local
+async function adminWrite(n, action){
+  if(USE_FIREBASE){
+    const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js');
+    const { getDatabase, ref, runTransaction } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js');
+    const app = initializeApp(window.FIREBASE_CONFIG);
+    const db = getDatabase(app);
+    const r = ref(db, `raffles/${RAFFLE_ID}/numbers/${n}`);
+    if(action==='sell'){
+      await runTransaction(r, current => {
+        const base = current || {};
+        return Object.assign({}, base, { status:'sold', soldTs: Date.now() });
+      });
+    } else if(action==='free'){
+      await runTransaction(r, current => undefined); // remove o nó
+    }
+  } else {
+    if(action==='sell'){ state.sold.add(n); state.pending.delete(n); state.selected.delete(n); }
+    else if(action==='free'){ state.sold.delete(n); state.pending.delete(n); state.selected.delete(n); }
+    paintGrid();
+    if(!USE_FIREBASE) console.warn('Sem Firebase: ação só reflete localmente.');
+  }
+}
+
+function checkPass(){ return adminPwd.value.trim() === ADMIN_PASS; }
+
+adminFab && adminFab.addEventListener('click', ()=>{
+  adminPanel.style.display = (adminPanel.style.display === 'none' || adminPanel.style.display === '') ? 'block' : 'none';
+});
+
+adminDoSell && adminDoSell.addEventListener('click', async ()=>{
+  if(!checkPass()) return alert('Senha inválida.');
+  const nums = parseRangesSimple(adminSell.value);
+  if(nums.length===0) return alert('Informe números para vender.');
+  for(const n of nums) await adminWrite(n,'sell');
+  adminSell.value='';
+  alert('Número(s) marcado(s) como VENDIDO.');
+});
+
+adminDoFree && adminDoFree.addEventListener('click', async ()=>{
+  if(!checkPass()) return alert('Senha inválida.');
+  const nums = parseRangesSimple(adminFree.value);
+  if(nums.length===0) return alert('Informe números para liberar.');
+  for(const n of nums) await adminWrite(n,'free');
+  adminFree.value='';
+  alert('Número(s) liberado(s).');
+});
 
   // ======== INICIALIZAÇÃO ========
   buildGrid();
