@@ -1,0 +1,443 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Rifa Halloween Azul Cargo</title>
+  <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+  <style>
+    :root{
+      --azul:#0033A0; /* Azul Cargo primary */
+      --azul-claro:#0057FF;
+      --amarelo:#FFC72C;
+      --cinza:#f3f5f9;
+      --danger:#d11a2a;
+      --ok:#0a8f3a;
+      --text:#0b1220;
+    }
+    *{box-sizing:border-box}
+    body{font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0;background:var(--cinza);color:var(--text)}
+    header{background:linear-gradient(135deg,var(--azul),#001a52);color:#fff;padding:24px 16px}
+    header h1{margin:0 0 4px 0;font-size:24px;letter-spacing:.3px}
+    header p{margin:0;opacity:.9}
+    main{max-width:1000px;margin:24px auto;padding:0 16px}
+    .card{background:#fff;border-radius:16px;box-shadow:0 6px 20px rgba(0,0,0,.06);padding:16px;margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(60px,1fr));gap:10px}
+    .num{
+      border:1px solid #e5e8f0;border-radius:12px;padding:10px 0;text-align:center;cursor:pointer;user-select:none;background:#fff;font-weight:600;
+      transition:.15s ease transform,.15s ease background,.15s ease color,.15s ease box-shadow;
+    }
+    .num:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.08)}
+    .num.selected{background:var(--amarelo);border-color:#e6b10a}
+    .num.sold{background:#eef2ff;border-color:#c7d2fe;color:#6b7280;cursor:not-allowed;position:relative}
+    .num.sold::after{content:"vendido";position:absolute;bottom:6px;left:50%;transform:translateX(-50%);font-size:10px;color:#6b7280}
+    .num.pending{background:#fff6d6;border-color:#f6d78b}
+    .toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+    .toolbar .pill{background:#eef2ff;border:1px solid #c7d2fe;color:#334155;padding:8px 12px;border-radius:999px}
+    .toolbar .right{margin-left:auto}
+    .btn{border:none;background:var(--azul);color:#fff;font-weight:700;padding:12px 16px;border-radius:12px;cursor:pointer;transition:.15s ease filter,.15s ease transform}
+    .btn:disabled{opacity:.5;cursor:not-allowed}
+    .btn:hover{filter:brightness(1.05)}
+    .btn.secondary{background:#fff;color:var(--azul);border:1px solid #cfe0ff}
+    .btn.danger{background:var(--danger)}
+    .row{display:flex;gap:12px;flex-wrap:wrap}
+    .row>div{flex:1 1 240px}
+    label{font-size:12px;color:#475569;display:block;margin-bottom:6px}
+    input,select{width:100%;padding:12px;border:1px solid #e5e8f0;border-radius:10px;font-size:14px}
+    .summary{background:#f8fafc;border:1px dashed #dbe3f5;border-radius:12px;padding:12px}
+    .qr-wrap{display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+    .qr-box{background:#fff;border:1px solid #e5e8f0;border-radius:16px;padding:12px;}
+    code.k{background:#0b1220;color:#b9f6ff;padding:2px 6px;border-radius:6px}
+    footer{opacity:.6;text-align:center;padding:24px}
+    .badge{font-size:11px;border:1px solid #e5e8f0;border-radius:999px;padding:4px 8px;background:#fff}
+    .legend{display:flex;gap:8px;flex-wrap:wrap}
+    .legend .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}
+    .dot.sel{background:var(--amarelo)}
+    .dot.sold{background:#c7d2fe}
+    .dot.free{background:#e5e8f0}
+    details summary{cursor:pointer;font-weight:600}
+    .hint{font-size:12px;color:#64748b}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Rifa Halloween Azul Cargo 🎃</h1>
+  <p>Escolha seus números, clique em <strong>Prosseguir</strong> e pague via <strong>PIX</strong> pelo QR Code.</p>
+</header>
+<main>
+  <!-- CONFIGURAÇÃO RÁPIDA -->
+  <section class="card" id="config">
+    <details>
+      <summary>Configurações (organizador)</summary>
+      <div class="row" style="margin-top:12px">
+        <div>
+          <label>Preço por número (R$)</label>
+          <input id="priceInput" type="number" step="0.01" value="10.00">
+        </div>
+        <div>
+          <label>Chave PIX</label>
+          <input id="pixKeyInput" type="text" value="SUA_CHAVE_PIX_AQUI">
+        </div>
+        <div>
+          <label>Nome do recebedor (PIX)</label>
+          <input id="pixNameInput" type="text" value="AZUL CARGO">
+        </div>
+        <div>
+          <label>Cidade (PIX)</label>
+          <input id="pixCityInput" type="text" value="CAMPINAS">
+        </div>
+        <div>
+          <label>Descrição no PIX</label>
+          <input id="pixDescInput" type="text" value="Rifa Halloween Azul Cargo">
+        </div>
+      </div>
+      <p class="hint">Dica: publique esta página no GitHub Pages. Para bloqueio em tempo real entre usuários, ative Firebase (ver seção "Como publicar" abaixo).</p>
+    </details>
+  </section>
+
+  <!-- STATUS & AÇÕES -->
+  <section class="card">
+    <div class="toolbar">
+      <span class="pill"><span class="badge" id="soldCount">0</span> vendidos</span>
+      <span class="pill"><span class="badge" id="pendingCount">0</span> pendentes</span>
+      <span class="pill"><span class="badge" id="freeCount">0</span> livres</span>
+      <div class="legend right">
+        <span class="badge"><span class="dot free"></span>livre</span>
+        <span class="badge"><span class="dot sel"></span>selecionado</span>
+        <span class="badge"><span class="dot sold"></span>indisponível</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- GRADE DE NÚMEROS -->
+  <section class="card">
+    <div class="grid" id="grid"></div>
+  </section>
+
+  <!-- IDENTIFICAÇÃO & RESUMO -->
+  <section class="card">
+    <div class="row">
+      <div>
+        <label>Seu nome (opcional, aparece no registro)</label>
+        <input id="buyerName" placeholder="Ex.: Lucas Paschoa" />
+      </div>
+      <div>
+        <label>Contato (e-mail ou WhatsApp, opcional)</label>
+        <input id="buyerContact" placeholder="Para confirmação" />
+      </div>
+    </div>
+
+    <div class="summary" style="margin-top:12px">
+      <div><strong>Selecionados:</strong> <span id="selList">—</span></div>
+      <div><strong>Total:</strong> R$ <span id="selTotal">0,00</span></div>
+    </div>
+
+    <div class="row" style="margin-top:12px">
+      <button id="clearBtn" class="btn secondary">Limpar seleção</button>
+      <button id="proceedBtn" class="btn">Prosseguir</button>
+    </div>
+  </section>
+
+  <!-- QR PIX -->
+  <section class="card" id="pixSection" style="display:none">
+    <h3>Pagamento via PIX</h3>
+    <p>Confira os dados e faça o pagamento. Seus números ficam marcados como <strong>pendentes</strong> automaticamente.</p>
+    <div class="qr-wrap">
+      <div class="qr-box"><div id="qrcode"></div></div>
+      <div>
+        <div class="summary" style="min-width:280px">
+          <div><strong>Valor:</strong> R$ <span id="pixValor">0,00</span></div>
+          <div><strong>Chave:</strong> <code class="k" id="pixKeyCode">—</code></div>
+          <div><strong>Mensagem:</strong> <span id="pixMsg">—</span></div>
+        </div>
+        <p class="hint">Se preferir, copie e cole o <em>código PIX copia e cola</em> abaixo no app do seu banco:</p>
+        <textarea id="pixPayload" rows="6" style="width:100%;font-family:ui-monospace,Menlo,Consolas,monospace"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:12px" class="row">
+      <button id="copyPayload" class="btn secondary">Copiar código PIX</button>
+      <button id="finishBtn" class="btn ok">Concluir</button>
+    </div>
+    <p class="hint">Após o pagamento, envie o comprovante para a organização. Números serão marcados como <strong>vendidos</strong> após validação.</p>
+  </section>
+
+  <!-- COMO PUBLICAR / BACKEND OPCIONAL -->
+  <section class="card">
+    <details>
+      <summary>Como publicar & bloquear números em tempo real (Firebase opcional)</summary>
+      <ol>
+        <li>Crie um repositório no GitHub com este arquivo <code>index.html</code>. Ative o GitHub Pages (branch <em>main</em>, pasta raiz).</li>
+        <li>(Opcional) Para impedir duas pessoas de comprarem o mesmo número ao mesmo tempo, crie um projeto no <a href="https://firebase.google.com/" target="_blank" rel="noreferrer">Firebase</a> &rarr; Realtime Database.</li>
+        <li>No Firebase, copie as credenciais Web (Config) e substitua em <code>window.FIREBASE_CONFIG</code> abaixo. Depois, altere <code>USE_FIREBASE = true</code>.</li>
+        <li>Nas Regras do Realtime Database use algo como:
+<pre style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e8f0;border-radius:8px;padding:8px">{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "raffles": {
+      "halloween2025": {
+        "numbers": {
+          "$n": {
+            ".write": "!data.exists()" // impede sobrescrever um número já salvo
+          }
+        }
+      }
+    }
+  }
+}</pre>
+        </li>
+        <li>Isso permite que a página marque um número como <strong>pendente</strong> atomica e publicamente. Depois, um organizador pode promover de "pendente" para "vendido" manualmente no Console (ou você pode estender o código).</li>
+      </ol>
+      <p class="hint">Sem Firebase, a página ainda funciona, mas o bloqueio é apenas local (no navegador de quem está escolhendo). Para evento real, recomendamos ativar o Firebase.</p>
+    </details>
+  </section>
+
+  <footer>
+    <small>Feito com ❤ para o Halloween da Azul Cargo. | Suporte: atualize o preço e a chave PIX nas configurações.</small>
+  </footer>
+</main>
+
+<!-- QRCode library -->
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs/qrcode.min.js"></script>
+<!-- Firebase (carregado apenas se USE_FIREBASE = true) -->
+<script type="module">
+  // ======== CONFIGURAÇÕES GERAIS ========
+  const TOTAL_NUMBERS = 200;
+  const RAFFLE_ID = 'halloween2025';
+  let PRICE = parseFloat(document.getElementById('priceInput').value || '10.00');
+  let PIX_KEY = document.getElementById('pixKeyInput').value.trim();
+  let PIX_NAME = document.getElementById('pixNameInput').value.trim();
+  let PIX_CITY = document.getElementById('pixCityInput').value.trim();
+  let PIX_DESC = document.getElementById('pixDescInput').value.trim();
+
+  // Troque para true após configurar o Firebase abaixo
+  const USE_FIREBASE = false; // <<< DEFINA TRUE SE USAR FIREBASE
+
+  // Cole aqui sua configuração do Firebase Web (se usar)
+  window.FIREBASE_CONFIG = {
+    apiKey: "",
+    authDomain: "",
+    databaseURL: "",
+    projectId: "",
+    storageBucket: "",
+    messagingSenderId: "",
+    appId: ""
+  };
+
+  // ======== ESTADO ========
+  const state = {
+    sold: new Set(),      // vendidos definitivos (Firebase: status='sold')
+    pending: new Map(),   // pendentes por comprador (Firebase: status='pending')
+    selected: new Set()   // seleção local do usuário atual
+  };
+
+  // ======== UI HELPERS ========
+  const grid = document.getElementById('grid');
+  const soldCount = document.getElementById('soldCount');
+  const pendingCount = document.getElementById('pendingCount');
+  const freeCount = document.getElementById('freeCount');
+  const selList = document.getElementById('selList');
+  const selTotal = document.getElementById('selTotal');
+  const proceedBtn = document.getElementById('proceedBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const buyerName = document.getElementById('buyerName');
+  const buyerContact = document.getElementById('buyerContact');
+
+  function formatMoney(v){
+    return (v||0).toFixed(2).replace('.', ',');
+  }
+
+  function updateCounters(){
+    const totalSold = state.sold.size;
+    const totalPending = state.pending.size;
+    const totalFree = TOTAL_NUMBERS - totalSold - totalPending;
+    soldCount.textContent = totalSold;
+    pendingCount.textContent = totalPending;
+    freeCount.textContent = totalFree;
+
+    const list = [...state.selected].sort((a,b)=>a-b);
+    selList.textContent = list.length ? list.join(', ') : '—';
+    selTotal.textContent = formatMoney(list.length * PRICE);
+
+    proceedBtn.disabled = list.length === 0 || !PIX_KEY;
+  }
+
+  function buildGrid(){
+    grid.innerHTML = '';
+    for(let i=1;i<=TOTAL_NUMBERS;i++){
+      const btn = document.createElement('div');
+      btn.className = 'num';
+      btn.textContent = i.toString().padStart(3,'0');
+      btn.dataset.n = i;
+      btn.addEventListener('click', ()=>toggleNumber(i, btn));
+      grid.appendChild(btn);
+    }
+    paintGrid();
+  }
+
+  function paintGrid(){
+    const children = grid.children;
+    for(const el of children){
+      const n = parseInt(el.dataset.n,10);
+      el.classList.remove('sold','selected','pending');
+      if(state.sold.has(n)) el.classList.add('sold');
+      else if(state.pending.has(n)) el.classList.add('pending');
+      else if(state.selected.has(n)) el.classList.add('selected');
+    }
+    updateCounters();
+  }
+
+  function toggleNumber(n, el){
+    if(state.sold.has(n) || state.pending.has(n)) return; // indisponível
+    if(state.selected.has(n)) state.selected.delete(n); else state.selected.add(n);
+    paintGrid();
+  }
+
+  clearBtn.addEventListener('click', ()=>{
+    state.selected.clear();
+    paintGrid();
+  });
+
+  // ======== PIX: Geração do BR Code ========
+  // Implementação simples do payload EMV/PIX com CRC16
+  function emvField(id, value){
+    const len = String(value.length).padStart(2,'0');
+    return id + len + value;
+  }
+  function crc16(payload){
+    let crc = 0xFFFF;
+    for(let i=0;i<payload.length;i++){
+      crc ^= payload.charCodeAt(i) << 8;
+      for(let j=0;j<8;j++){
+        if((crc & 0x8000) !== 0) crc = (crc << 1) ^ 0x1021; else crc <<= 1;
+        crc &= 0xFFFF;
+      }
+    }
+    return crc.toString(16).toUpperCase().padStart(4,'0');
+  }
+  function buildPixPayload({key,name,city,amount,description,txid}){
+    // GUI e data da conta
+    const gui = emvField('00','BR.GOV.BCB.PIX');
+    const keyF = key ? emvField('01', key) : '';
+    const descF = description ? emvField('02', description.substring(0,25)) : '';
+    const addData = emvField('26', gui + keyF + descF);
+
+    const merCat = emvField('52','0000');
+    const merMCC = emvField('53','986'); // BRL
+    const transAmt = amount ? emvField('54', (amount).toFixed(2)) : '';
+    const country = emvField('58','BR');
+    const nameF = emvField('59', name.substring(0,25) || 'RECEBEDOR');
+    const cityF = emvField('60', (city||'BRASILIA').substring(0,15).toUpperCase());
+    const txidF = emvField('62', emvField('05', (txid||'HALLOWEEN').substring(0,25)));
+
+    const payloadSemCRC = emvField('00','01') + // formato EMV
+      emvField('01','12') + // ponto de venda dinâmico
+      addData + merCat + merMCC + transAmt + country + nameF + cityF + txidF + '6304';
+
+    const crc = crc16(payloadSemCRC);
+    return payloadSemCRC + crc;
+  }
+
+  let qr; // instancia
+  function showPix(amount){
+    const nome = PIX_NAME || 'AZUL CARGO';
+    const cidade = PIX_CITY || 'CAMPINAS';
+    const desc = PIX_DESC || 'Rifa Halloween';
+    const txid = `RIFA-${Date.now()}`;
+    const payload = buildPixPayload({key:PIX_KEY,name:nome,city:cidade,amount,description:desc,txid});
+
+    document.getElementById('pixSection').style.display = 'block';
+    document.getElementById('pixValor').textContent = formatMoney(amount);
+    document.getElementById('pixKeyCode').textContent = PIX_KEY;
+    document.getElementById('pixMsg').textContent = desc;
+    document.getElementById('pixPayload').value = payload;
+
+    const qrDiv = document.getElementById('qrcode');
+    qrDiv.innerHTML = '';
+    qr = new QRCode(qrDiv, { text: payload, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M });
+  }
+
+  document.getElementById('copyPayload').addEventListener('click', async ()=>{
+    const ta = document.getElementById('pixPayload');
+    ta.select();
+    try{ await navigator.clipboard.writeText(ta.value); alert('Código PIX copiado!'); }catch(e){ document.execCommand('copy'); alert('Copiado (método alternativo).'); }
+  });
+
+  // Atualizar configurações quando o organizador editar
+  ['priceInput','pixKeyInput','pixNameInput','pixCityInput','pixDescInput'].forEach(id=>{
+    document.getElementById(id).addEventListener('input', ()=>{
+      PRICE = parseFloat(document.getElementById('priceInput').value || '0') || 0;
+      PIX_KEY = document.getElementById('pixKeyInput').value.trim();
+      PIX_NAME = document.getElementById('pixNameInput').value.trim();
+      PIX_CITY = document.getElementById('pixCityInput').value.trim();
+      PIX_DESC = document.getElementById('pixDescInput').value.trim();
+      updateCounters();
+    });
+  });
+
+  // ======== LÓGICA DE PROSSEGUIR ========
+  proceedBtn.addEventListener('click', async ()=>{
+    const nums = [...state.selected].sort((a,b)=>a-b);
+    if(nums.length===0) return;
+
+    if(USE_FIREBASE){
+      const buyer = buyerName.value.trim() || 'Anônimo';
+      const contact = buyerContact.value.trim();
+      const amount = nums.length * PRICE;
+
+      try{
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js');
+        const { getDatabase, ref, runTransaction, onValue } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js');
+        const app = initializeApp(window.FIREBASE_CONFIG);
+        const db = getDatabase(app);
+
+        // Tenta gravar cada número como pendente (transação impede corrida)
+        for(const n of nums){
+          const r = ref(db, `raffles/${RAFFLE_ID}/numbers/${n}`);
+          // Se não existir, cria com status pendente
+          // runTransaction garante que não sobrescrevemos vendido/pendente existente
+          await runTransaction(r, current => {
+            if(current) return; // já existe, aborta
+            return { status:'pending', buyer, contact, ts: Date.now() };
+          });
+        }
+
+        // Ouve estado atual para refletir na UI
+        const collRef = ref(db, `raffles/${RAFFLE_ID}/numbers`);
+        onValue(collRef, snap => {
+          state.sold.clear();
+          state.pending.clear();
+          const data = snap.val()||{};
+          for(const k of Object.keys(data)){
+            const n = parseInt(k,10);
+            if(data[k].status==='sold') state.sold.add(n); else state.pending.set(n, data[k]);
+          }
+          // Remove da seleção o que virou pendente
+          for(const n of [...state.selected]) if(state.pending.has(n) || state.sold.has(n)) state.selected.delete(n);
+          paintGrid();
+        });
+
+        showPix(amount);
+      }catch(err){
+        console.error(err);
+        alert('Erro ao conectar no Firebase. Verifique as credenciais e as regras do banco.');
+      }
+    } else {
+      // Modo estático: apenas mostra o PIX e marca localmente como pendente
+      const amount = nums.length * PRICE;
+      for(const n of nums){ state.pending.set(n,{status:'pending',buyer:buyerName.value||'Anônimo',ts:Date.now()}); state.selected.delete(n); }
+      paintGrid();
+      showPix(amount);
+    }
+  });
+
+  document.getElementById('finishBtn').addEventListener('click', ()=>{
+    alert('Obrigado! Guarde seus comprovantes. Os números serão validados pela organização.');
+  });
+
+  // ======== INICIALIZAÇÃO ========
+  buildGrid();
+  updateCounters();
+</script>
+</body>
+</html>
