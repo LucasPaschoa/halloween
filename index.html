@@ -539,6 +539,32 @@
   // ======== INICIALIZAÇÃO ========
   buildGrid();
   updateCounters();
+
+  // ======== Firebase listener global (reflete VENDIDO/PENDENTE em tempo real) ========
+  if (USE_FIREBASE && !window.__raffleListenerAttached) {
+    window.__raffleListenerAttached = true;
+    (async function attachFirebaseListener(){
+      try{
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js');
+        const { getDatabase, ref, onValue } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js');
+        const app = initializeApp(window.FIREBASE_CONFIG);
+        const db = getDatabase(app);
+        const collRef = ref(db, `raffles/${RAFFLE_ID}/numbers`);
+        onValue(collRef, snap => {
+          state.sold.clear();
+          state.pending.clear();
+          const data = snap.val() || {};
+          for (const k in data) {
+            const n = parseInt(k, 10);
+            if (data[k] && data[k].status === 'sold') state.sold.add(n); else state.pending.set(n, data[k]);
+          }
+          // se algum selecionado virou ocupado, remove
+          for (const n of [...state.selected]) if (state.sold.has(n) || state.pending.has(n)) state.selected.delete(n);
+          paintGrid();
+        });
+      }catch(e){ console.error('Erro ao anexar listener Firebase:', e); }
+    })();
+  }
 </script>
 </body>
 </html>
