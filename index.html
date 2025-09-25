@@ -540,28 +540,39 @@ Comprador: ${buyer}${contact}`);
     }
 
     if(USE_FIREBASE){
-      // buyer vindo da validação acima
       const contact = buyerContact.value.trim();
       const amount = nums.length * PRICE;
-
       try{
         const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js');
-        const { getDatabase, ref, runTransaction, onValue } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js');
+        const { getDatabase, ref, runTransaction } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js');
         const app = initializeApp(window.FIREBASE_CONFIG);
         const db = getDatabase(app);
-
-        // Tenta gravar cada número como pendente (transação impede corrida)
         for(const n of nums){
           const r = ref(db, `raffles/${RAFFLE_ID}/numbers/${n}`);
-          // Se não existir, cria com status pendente
-          // runTransaction garante que não sobrescrevemos vendido/pendente existente
           await runTransaction(r, current => {
-            if(current) return; // já existe, aborta
+            if(current) return; // já existe (pendente ou vendido)
             return { status:'pending', buyer, contact, ts: Date.now() };
           });
         }
+        showPix(amount);
+      }catch(e){ console.error(e); alert('Erro ao salvar sua reserva. Tente novamente.'); }
+    } else {
+      const amount = nums.length * PRICE;
+      for(const n of nums){ state.pending.set(n,{status:'pending',buyer:buyer,ts:Date.now()}); state.selected.delete(n); }
+      paintGrid();
+      showPix(amount);
+    }
+  });
 
-        // Ouve estado atual para refletir na UI
+  // ======== LISTENER GLOBAL DO FIREBASE (REFLEXO EM TEMPO REAL) ========
+  if (USE_FIREBASE && !window.__raffleListenerAttached) {
+    window.__raffleListenerAttached = true;
+    (async function(){
+      try{
+        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js');
+        const { getDatabase, ref, onValue } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js');
+        const app = initializeApp(window.FIREBASE_CONFIG);
+        const db = getDatabase(app);
         const collRef = ref(db, `raffles/${RAFFLE_ID}/numbers`);
         onValue(collRef, snap => {
           state.sold.clear();
@@ -572,13 +583,17 @@ Comprador: ${buyer}${contact}`);
             const n = parseInt(k, 10);
             if (data[k] && data[k].status === 'sold') state.sold.add(n); else state.pending.set(n, data[k]);
           }
-          // se algum selecionado virou ocupado, remove
+          // Remove da seleção números que ficaram ocupados
           for (const n of [...state.selected]) if (state.sold.has(n) || state.pending.has(n)) state.selected.delete(n);
           paintGrid();
         });
       }catch(e){ console.error('Erro ao anexar listener Firebase:', e); }
     })();
   }
+
+  // ======== INICIALIZAÇÃO ========
+  buildGrid();
+  updateCounters();
 </script>
 </body>
 </html>
