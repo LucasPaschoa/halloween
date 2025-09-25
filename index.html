@@ -63,6 +63,7 @@
     #adminPanel .row{gap:8px}
     #adminPanel input{padding:8px}
     #adminPanel h4{margin:0 0 8px 0}
+  .invalid{border-color:#d11a2a !important;background:#fff5f5}
   </style>
 </head>
 <body>
@@ -125,8 +126,8 @@
   <section class="card">
     <div class="row">
       <div>
-        <label>Seu nome (opcional, aparece no registro)</label>
-        <input id="buyerName" placeholder="Ex.: Lucas Paschoa" />
+        <label>Seu nome (obrigatório)</label>
+        <input id="buyerName" placeholder="Ex.: Lucas Paschoa" aria-required="true" />
       </div>
       <div>
         <label>Contato (e-mail ou WhatsApp, opcional)</label>
@@ -243,6 +244,7 @@
   const proceedBtn = document.getElementById('proceedBtn');
   const clearBtn = document.getElementById('clearBtn');
   const buyerName = document.getElementById('buyerName');
+  buyerName.addEventListener('input', ()=>{ if(buyerName.classList.contains('invalid') && buyerName.value.trim()) buyerName.classList.remove('invalid'); updateCounters(); });
   const buyerContact = document.getElementById('buyerContact');
 
   function formatMoney(v){
@@ -261,7 +263,7 @@
     selList.textContent = list.length ? list.join(', ') : '—';
     selTotal.textContent = formatMoney(list.length * PRICE);
 
-    proceedBtn.disabled = list.length === 0 || !PIX_KEY;
+    proceedBtn.disabled = list.length === 0 || !PIX_KEY || !buyerName.value.trim();
   }
 
   function buildGrid(){
@@ -285,12 +287,37 @@
       if(state.sold.has(n)) el.classList.add('sold');
       else if(state.pending.has(n)) el.classList.add('pending');
       else if(state.selected.has(n)) el.classList.add('selected');
+
+      // tooltip com comprador
+      const all = window.__raffleData || {};
+      const info = all[n];
+      if(info && (info.status==='sold' || info.status==='pending')){
+        const who = info.buyer || '—';
+        const st  = info.status==='sold' ? 'vendido' : 'pendente';
+        el.title = `#${String(n).padStart(3,'0')} • ${st} • ${who}`;
+        el.dataset.buyer = who;
+        el.dataset.status = st;
+      } else {
+        el.removeAttribute('title');
+        el.dataset.buyer = '';
+        el.dataset.status = '';
+      }
     }
     updateCounters();
   }
 
+  function showNumberInfo(n){
+    const info = (window.__raffleData && window.__raffleData[n]) ? window.__raffleData[n] : null;
+    if(!info){ alert(`Número ${String(n).padStart(3,'0')} está livre.`); return; }
+    const status = info.status === 'sold' ? 'VENDIDO' : 'PENDENTE';
+    const buyer = info.buyer || '—';
+    const contact = info.contact ? `
+Contato: ${info.contact}` : '';
+    alert(`Número ${String(n).padStart(3,'0')} • ${status}
+Comprador: ${buyer}${contact}`);
+  }
   function toggleNumber(n, el){
-    if(state.sold.has(n) || state.pending.has(n)) return; // indisponível
+    if(state.sold.has(n) || state.pending.has(n)) { showNumberInfo(n); return; } // indisponível
     if(state.selected.has(n)) state.selected.delete(n); else state.selected.add(n);
     paintGrid();
   }
@@ -504,9 +531,16 @@
   proceedBtn.addEventListener('click', async ()=>{
     const nums = [...state.selected].sort((a,b)=>a-b);
     if(nums.length===0) return;
+    const buyer = buyerName.value.trim();
+    if(!buyer){
+      buyerName.classList.add('invalid');
+      buyerName.focus();
+      alert('Por favor, preencha seu nome para continuar.');
+      return;
+    }
 
     if(USE_FIREBASE){
-      const buyer = buyerName.value.trim() || 'Anônimo';
+      // buyer vindo da validação acima
       const contact = buyerContact.value.trim();
       const amount = nums.length * PRICE;
 
@@ -532,52 +566,8 @@
         onValue(collRef, snap => {
           state.sold.clear();
           state.pending.clear();
-          const data = snap.val()||{};
-          for(const k of Object.keys(data)){
-            const n = parseInt(k,10);
-            if(data[k].status==='sold') state.sold.add(n); else state.pending.set(n, data[k]);
-          }
-          // Remove da seleção o que virou pendente
-          for(const n of [...state.selected]) if(state.pending.has(n) || state.sold.has(n)) state.selected.delete(n);
-          paintGrid();
-        });
-
-        showPix(amount);
-      }catch(err){
-        console.error(err);
-        alert('Erro ao conectar no Firebase. Verifique as credenciais e as regras do banco.');
-      }
-    } else {
-      // Modo estático: apenas mostra o PIX e marca localmente como pendente
-      const amount = nums.length * PRICE;
-      for(const n of nums){ state.pending.set(n,{status:'pending',buyer:buyerName.value||'Anônimo',ts:Date.now()}); state.selected.delete(n); }
-      paintGrid();
-      showPix(amount);
-    }
-  });
-
-  document.getElementById('finishBtn').addEventListener('click', ()=>{
-    alert('Obrigado! Guarde seus comprovantes. Os números serão validados pela organização.');
-  });
-
-  // ======== INICIALIZAÇÃO ========
-  buildGrid();
-  updateCounters();
-
-  // ======== Firebase listener global (reflete VENDIDO/PENDENTE em tempo real) ========
-  if (USE_FIREBASE && !window.__raffleListenerAttached) {
-    window.__raffleListenerAttached = true;
-    (async function attachFirebaseListener(){
-      try{
-        const { initializeApp } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-app.js');
-        const { getDatabase, ref, onValue } = await import('https://www.gstatic.com/firebasejs/10.13.1/firebase-database.js');
-        const app = initializeApp(window.FIREBASE_CONFIG);
-        const db = getDatabase(app);
-        const collRef = ref(db, `raffles/${RAFFLE_ID}/numbers`);
-        onValue(collRef, snap => {
-          state.sold.clear();
-          state.pending.clear();
           const data = snap.val() || {};
+          window.__raffleData = data;
           for (const k in data) {
             const n = parseInt(k, 10);
             if (data[k] && data[k].status === 'sold') state.sold.add(n); else state.pending.set(n, data[k]);
