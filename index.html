@@ -166,39 +166,7 @@
       <button id="finishBtn" class="btn ok">Concluir</button>
     </div>
     <p class="hint">Após o pagamento, envie o comprovante para a organização. Números serão marcados como <strong>vendidos</strong> após validação.</p>
-  </section>
-
-  <!-- COMO PUBLICAR / BACKEND OPCIONAL -->
-  <section class="card">
-    <details>
-      <summary>Como publicar & bloquear números em tempo real (Firebase opcional)</summary>
-      <ol>
-        <li>Crie um repositório no GitHub com este arquivo <code>index.html</code>. Ative o GitHub Pages (branch <em>main</em>, pasta raiz).</li>
-        <li>(Opcional) Para impedir duas pessoas de comprarem o mesmo número ao mesmo tempo, crie um projeto no <a href="https://firebase.google.com/" target="_blank" rel="noreferrer">Firebase</a> &rarr; Realtime Database.</li>
-        <li>No Firebase, copie as credenciais Web (Config) e substitua em <code>window.FIREBASE_CONFIG</code> abaixo. Depois, altere <code>USE_FIREBASE = true</code>.</li>
-        <li>Nas Regras do Realtime Database use algo como:
-<pre style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e5e8f0;border-radius:8px;padding:8px">{
-  "rules": {
-    ".read": true,
-    ".write": true,
-    "raffles": {
-      "halloween2025": {
-        "numbers": {
-          "$n": {
-            ".write": "!data.exists()" // impede sobrescrever um número já salvo
-          }
-        }
-      }
-    }
-  }
-}</pre>
-        </li>
-        <li>Isso permite que a página marque um número como <strong>pendente</strong> atomica e publicamente. Depois, um organizador pode promover de "pendente" para "vendido" manualmente no Console (ou você pode estender o código).</li>
-      </ol>
-      <p class="hint">Sem Firebase, a página ainda funciona, mas o bloqueio é apenas local (no navegador de quem está escolhendo). Para evento real, recomendamos ativar o Firebase.</p>
-    </details>
-  </section>
-  <!-- Admin FAB + Panel (senha não visível) -->
+  </section>  <!-- Admin FAB + Panel (senha não visível) -->
   <button id="adminFab" class="btn admin-fab" title="Admin">Admin</button>
   <div id="adminPanel" class="card">
     <h4>Admin</h4>
