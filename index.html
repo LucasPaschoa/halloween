@@ -153,7 +153,7 @@
       <div class="qr-box"><div id="qrcode"></div></div>
       <div>
         <div class="summary" style="min-width:280px">
-          <div><strong>Valor:</strong> R$ <span id="pixValor">0,00</span></div>
+          <div><strong>Valor sugerido (digite no app):</strong> R$ <span id="pixValor">0,00</span></div>
           <div><strong>Chave:</strong> <code class="k" id="pixKeyCode">—</code></div>
           <div><strong>Mensagem:</strong> <span id="pixMsg">—</span></div>
         </div>
@@ -331,7 +331,7 @@
     const country = emvField('58','BR');
     const nameF = emvField('59', name.substring(0,25) || 'RECEBEDOR');
     const cityF = emvField('60', (city||'BRASILIA').substring(0,15).toUpperCase());
-    const txidF = emvField('62', emvField('05', (txid||'HALLOWEEN').substring(0,25)));
+    const txidF = emvField('62', emvField('05', '***'));
 
     const payloadSemCRC = emvField('00','01') + // formato EMV
       emvField('01','11') + // ponto de venda dinâmico
@@ -359,7 +359,7 @@
     const desc = PIX_DESC || 'Rifa Halloween';
     const txid = `RIFA-${Date.now()}`;
     const keyToUse = normalizePixKey(PIX_KEY);
-    const payload = buildPixPayload({key:keyToUse,name:nome,city:cidade,amount,description:desc,txid});
+    const payload = buildPixPayload({key:keyToUse,name:nome,city:cidade,amount:null,description:desc,txid});
 
     document.getElementById('pixSection').style.display = 'block';
     document.getElementById('pixValor').textContent = formatMoney(amount);
