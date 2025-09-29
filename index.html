@@ -64,6 +64,11 @@
     #adminPanel input{padding:8px}
     #adminPanel h4{margin:0 0 8px 0}
   .invalid{border-color:#d11a2a !important;background:#fff5f5}
+  .resv-table{width:100%;border-collapse:collapse;font-size:14px}
+  .resv-table th,.resv-table td{padding:8px;border-bottom:1px solid #eef2f7;text-align:left}
+  .status-pill{display:inline-block;border-radius:999px;padding:2px 8px;font-size:12px;border:1px solid #e5e8f0;background:#fff}
+  .status-pill.sold{background:#eef2ff;border-color:#c7d2fe}
+  .status-pill.pending{background:#fff6d6;border-color:#f6d78b}
   </style>
 </head>
 <body>
@@ -194,6 +199,23 @@
       <button id="adminDoFree" class="btn danger">Liberar</button>
     </div>
   </div>
+  <!-- Lista expansível de reservas -->
+  <section class="card">
+    <details id="resvDetails">
+      <summary>Reservas (pendentes e vendidas) — <span id="resvSummary">0</span></summary>
+      <div class="row" style="margin:8px 0">
+        <div style="flex:1 1 240px">
+          <label>Buscar por número, nome ou status</label>
+          <input id="resvSearch" placeholder="Ex.: 023, Julia, vendido/pendente" />
+        </div>
+        <div style="align-self:flex-end;display:flex;gap:8px">
+          <button id="resvClear" class="btn secondary">Limpar</button>
+          <button id="resvExport" class="btn">Exportar CSV</button>
+        </div>
+      </div>
+      <div id="resvList" class="hint">Nenhuma reserva por enquanto.</div>
+    </details>
+  </section>
 
   <footer>
     <small>Feito com ❤ para o Halloween da Azul Cargo. | Suporte: atualize o preço e a chave PIX nas configurações.</small>
@@ -277,6 +299,7 @@
       grid.appendChild(btn);
     }
     paintGrid();
+          renderReservations();
   }
 
   function paintGrid(){
@@ -320,11 +343,13 @@ Comprador: ${buyer}${contact}`);
     if(state.sold.has(n) || state.pending.has(n)) { showNumberInfo(n); return; } // indisponível
     if(state.selected.has(n)) state.selected.delete(n); else state.selected.add(n);
     paintGrid();
+          renderReservations();
   }
 
   clearBtn.addEventListener('click', ()=>{
     state.selected.clear();
     paintGrid();
+          renderReservations();
   });
 
   // ======== PIX: Geração do BR Code ========
@@ -496,6 +521,7 @@ Comprador: ${buyer}${contact}`);
       if(action==='sell'){ state.sold.add(n); state.pending.delete(n); state.selected.delete(n); }
       else if(action==='free'){ state.sold.delete(n); state.pending.delete(n); state.selected.delete(n); }
       paintGrid();
+          renderReservations();
       console.warn('Sem Firebase: ação apenas local.');
     }
   }
@@ -560,9 +586,92 @@ Comprador: ${buyer}${contact}`);
       const amount = nums.length * PRICE;
       for(const n of nums){ state.pending.set(n,{status:'pending',buyer:buyer,ts:Date.now()}); state.selected.delete(n); }
       paintGrid();
+          renderReservations();
       showPix(amount);
     }
   });
+
+  // ======== RENDER: Lista de reservas (com busca e CSV) ========
+  function escapeHtml(s){
+    if(!s) return '';
+    return s.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
+  }
+  function getAllReservations(){
+    const data = window.__raffleData || {};
+    const rows = [];
+    let soldC=0, pendC=0;
+    for(const k of Object.keys(data)){
+      const n = parseInt(k,10); const v = data[k]; if(!v) continue;
+      const isSold = v.status==='sold';
+      if(isSold) soldC++; else pendC++;
+      rows.push({n, buyer: v.buyer||'—', status: isSold?'Vendido':'Pendente'});
+    }
+    rows.sort((a,b)=>a.n-b.n);
+    return {rows, soldC, pendC};
+  }
+  function applyReservationFilter(rows, q){
+    if(!q) return rows;
+    q = q.toLowerCase().trim();
+    return rows.filter(r => {
+      const num = String(r.n).padStart(3,'0');
+      const buyer = (r.buyer||'').toLowerCase();
+      const status = r.status.toLowerCase();
+      return num.includes(q) || buyer.includes(q) || status.includes(q);
+    });
+  }
+  function renderReservations(){
+    const wrap = document.getElementById('resvList');
+    const sum  = document.getElementById('resvSummary');
+    if(!wrap) return;
+    const searchEl = document.getElementById('resvSearch');
+    const query = searchEl ? searchEl.value : '';
+
+    const all = getAllReservations();
+    const filtered = applyReservationFilter(all.rows, query);
+
+    window.__lastFilteredRows = filtered;
+
+    if(filtered.length===0){
+      wrap.innerHTML = query ? 'Nenhuma reserva para este filtro.' : 'Nenhuma reserva por enquanto.';
+      if(sum) sum.textContent = `0 de ${all.rows.length}`;
+      return;
+    }
+    let html = '<table class="resv-table"><thead><tr><th>Nº</th><th>Status</th><th>Comprador</th></tr></thead><tbody>';
+    for(const r of filtered){
+      html += `<tr><td>${String(r.n).padStart(3,'0')}</td><td><span class="status-pill ${r.status==='Vendido'?'sold':'pending'}">${r.status}</span></td><td>${escapeHtml(r.buyer)}</td></tr>`;
+    }
+    html += '</tbody></table>';
+    wrap.innerHTML = html;
+
+    const soldF = filtered.filter(r=>r.status==='Vendido').length;
+    const pendF = filtered.filter(r=>r.status==='Pendente').length;
+    if(sum) sum.textContent = `${filtered.length} de ${all.rows.length} • ${soldF} vendidos / ${pendF} pendentes`;
+  }
+
+  function exportReservationsCSV(){
+    const rows = window.__lastFilteredRows || [];
+    const esc = (s)=> '"' + String(s).replace(/"/g,'""') + '"';
+    let csv = 'Numero,Status,Comprador
+';
+    for(const r of rows){ csv += `${esc(String(r.n).padStart(3,'0'))},${esc(r.status)},${esc(r.buyer||'')}
+`; }
+    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'reservas.csv';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+  }
+
+  // Eventos de busca e export
+  (function bindResvControls(){
+    const q = document.getElementById('resvSearch');
+    const clearBtn = document.getElementById('resvClear');
+    const expBtn = document.getElementById('resvExport');
+    if(q){ q.addEventListener('input', renderReservations); }
+    if(clearBtn){ clearBtn.addEventListener('click', ()=>{ if(q) q.value=''; renderReservations(); }); }
+    if(expBtn){ expBtn.addEventListener('click', exportReservationsCSV); }
+  })();
 
   // ======== LISTENER GLOBAL DO FIREBASE (REFLEXO EM TEMPO REAL) ========
   if (USE_FIREBASE && !window.__raffleListenerAttached) {
@@ -586,6 +695,7 @@ Comprador: ${buyer}${contact}`);
           // Remove da seleção números que ficaram ocupados
           for (const n of [...state.selected]) if (state.sold.has(n) || state.pending.has(n)) state.selected.delete(n);
           paintGrid();
+          renderReservations();
         });
       }catch(e){ console.error('Erro ao anexar listener Firebase:', e); }
     })();
