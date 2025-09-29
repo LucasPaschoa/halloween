@@ -702,8 +702,28 @@ Comprador: ${buyer}${contact}`);
   }
 
   // ======== INICIALIZAÇÃO ========
-  buildGrid();
-  updateCounters();
+  (function initOnce(){
+    try{
+      buildGrid();
+      updateCounters();
+      paintGrid();
+      if(typeof renderReservations === 'function') renderReservations();
+      console.log('[Rifa] Init OK');
+    }catch(e){ console.error('[Rifa] Init error', e); }
+  })();
+
+  // SAFE BOOT: se por algum motivo a grade não renderizar, tenta reconstruir
+  setTimeout(()=>{
+    try{
+      const gridEl = document.getElementById('grid');
+      if(gridEl && gridEl.children.length === 0){
+        console.warn('[Rifa] Grid vazio — reconstruindo...');
+        buildGrid();
+        paintGrid();
+        if(typeof renderReservations === 'function') renderReservations();
+      }
+    }catch(e){ console.error('[Rifa] Safe boot error', e); }
+  }, 50);
 </script>
 </body>
 </html>
