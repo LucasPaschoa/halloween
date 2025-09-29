@@ -653,19 +653,19 @@ Comprador: ${buyer}${contact}`);
     if(sum) sum.textContent = `${filtered.length} de ${all.rows.length} • ${soldF} vendidos / ${pendF} pendentes`;
   }
   function exportReservationsCSV(){
-    const rows = window.__lastFilteredRows || [];
-    const esc = (s)=> '"' + String(s).replace(/"/g,'""') + '"';
-    let csv = 'Numero,Status,Comprador
-';
-    for(const r of rows){ csv += `${esc(String(r.n).padStart(3,'0'))},${esc(r.status)},${esc(r.buyer||'')}
-`; }
-    const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = 'reservas.csv';
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+  const rows = window.__lastFilteredRows || [];
+  const esc = (s)=> '"' + String(s).replace(/"/g,'""') + '"';
+  let csv = 'Numero,Status,Comprador\n';
+  for (const r of rows) {
+    csv += `${esc(String(r.n).padStart(3,'0'))},${esc(r.status)},${esc(r.buyer||'')}\n`;
   }
+  const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'reservas.csv';
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
+}
   (function bindResvControls(){
     const q = document.getElementById('resvSearch');
     const clearBtn = document.getElementById('resvClear');
