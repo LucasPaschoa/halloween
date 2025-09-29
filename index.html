@@ -594,21 +594,12 @@ Comprador: ${buyer}${contact}`);
   // ======== RENDER: Lista de reservas (com busca e CSV) ========
   function escapeHtml(s){
     if(!s) return '';
-    // implementação bem simples, sem regex complexa (evita erros de sintaxe)
     return String(s)
       .replace(/&/g,'&amp;')
       .replace(/</g,'&lt;')
       .replace(/>/g,'&gt;')
-      .replace(/\"/g,'&quot;')
+      .replace(/"/g,'&quot;')
       .replace(/'/g,'&#39;');
-  }
-    });
-  }[ch]);
-    });
-  }[ch]); });
-  }[ch]);
-    });
-  }[ch]));
   }
   function getAllReservations(){
     const data = window.__raffleData || {};
@@ -661,7 +652,6 @@ Comprador: ${buyer}${contact}`);
     const pendF = filtered.filter(r=>r.status==='Pendente').length;
     if(sum) sum.textContent = `${filtered.length} de ${all.rows.length} • ${soldF} vendidos / ${pendF} pendentes`;
   }
-
   function exportReservationsCSV(){
     const rows = window.__lastFilteredRows || [];
     const esc = (s)=> '"' + String(s).replace(/"/g,'""') + '"';
@@ -676,8 +666,6 @@ Comprador: ${buyer}${contact}`);
     document.body.appendChild(a); a.click();
     setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 0);
   }
-
-  // Eventos de busca e export
   (function bindResvControls(){
     const q = document.getElementById('resvSearch');
     const clearBtn = document.getElementById('resvClear');
@@ -702,8 +690,6 @@ Comprador: ${buyer}${contact}`);
           state.pending.clear();
           const data = snap.val() || {};
           window.__raffleData = data;
-          renderReservations();
-          
           for (const k in data) {
             const n = parseInt(k, 10);
             if (data[k] && data[k].status === 'sold') state.sold.add(n); else state.pending.set(n, data[k]);
@@ -723,7 +709,6 @@ Comprador: ${buyer}${contact}`);
       buildGrid();
       updateCounters();
       paintGrid();
-      renderReservations();
       if(typeof renderReservations === 'function') renderReservations();
       console.log('[Rifa] Init OK');
     }catch(e){ console.error('[Rifa] Init error', e); }
