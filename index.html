@@ -579,6 +579,8 @@ Comprador: ${buyer}${contact}`);
           state.pending.clear();
           const data = snap.val() || {};
           window.__raffleData = data;
+          renderReservations();
+          
           for (const k in data) {
             const n = parseInt(k, 10);
             if (data[k] && data[k].status === 'sold') state.sold.add(n); else state.pending.set(n, data[k]);
@@ -594,6 +596,7 @@ Comprador: ${buyer}${contact}`);
   // ======== INICIALIZAÇÃO ========
   buildGrid();
   updateCounters();
+  renderReservations();
 </script>
 </body>
 </html>
