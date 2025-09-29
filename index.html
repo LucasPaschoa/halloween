@@ -594,7 +594,10 @@ Comprador: ${buyer}${contact}`);
   // ======== RENDER: Lista de reservas (com busca e CSV) ========
   function escapeHtml(s){
     if(!s) return '';
-    return s.replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]));
+    return s.replace(/[&<>"']/g, function(ch){
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;','\'':'&#39;'}[ch]);
+    });
+  }[ch]));
   }
   function getAllReservations(){
     const data = window.__raffleData || {};
