@@ -725,5 +725,23 @@ Comprador: ${buyer}${contact}`);
     }catch(e){ console.error('[Rifa] Safe boot error', e); }
   }, 50);
 </script>
+<script>
+// HOTFIX bootstrap — garante grade visível mesmo se algum bloco falhou
+(function(){
+  try{
+    var grid = document.getElementById('grid');
+    if(!grid){
+      var sec = document.createElement('section'); sec.className='card';
+      grid = document.createElement('div'); grid.id='grid'; grid.className='grid';
+      sec.appendChild(grid);
+      var ref = document.getElementById('resvDetails');
+      (ref? ref.closest('section'): document.body).before(sec);
+    }
+    if(grid.children.length===0){
+      for(var i=1;i<=300;i++){ var el=document.createElement('div'); el.className='num'; el.textContent=String(i).padStart(3,'0'); grid.appendChild(el); }
+    }
+  }catch(e){ console.error('[Rifa HOTFIX] erro ao montar grade', e); }
+})();
+</script>
 </body>
 </html>
