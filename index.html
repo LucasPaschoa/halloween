@@ -227,7 +227,7 @@
 <!-- Firebase (carregado apenas se USE_FIREBASE = true) -->
 <script type="module">
   // ======== CONFIGURAÇÕES GERAIS ========
-  const TOTAL_NUMBERS = 300;
+  const TOTAL_NUMBERS = 350;
   const RAFFLE_ID = 'halloween2025';
   let PRICE = parseFloat(document.getElementById('priceInput').value || '10.00');
   let PIX_KEY = document.getElementById('pixKeyInput').value.trim();
@@ -740,7 +740,7 @@ Comprador: ${buyer}${contact}`);
       (ref? ref.closest('section'): document.body).before(sec);
     }
     if(grid.children.length===0){
-      for(var i=1;i<=300;i++){ var el=document.createElement('div'); el.className='num'; el.textContent=String(i).padStart(3,'0'); grid.appendChild(el); }
+      for(var i=1;i<=350;i++){ var el=document.createElement('div'); el.className='num'; el.textContent=String(i).padStart(3,'0'); grid.appendChild(el); }
     }
   }catch(e){ console.error('[Rifa HOTFIX] erro ao montar grade', e); }
 })();
