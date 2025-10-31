@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <title>Roleta — Rifa Halloween Azul Cargo</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root{
+      --azul:#0033A0;
+      --amarelo:#FFC72C;
+      --cinza:#f3f5f9;
+    }
+    body{margin:0;font-family:system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;background:var(--cinza);color:#0b1220;display:flex;flex-direction:column;min-height:100vh}
+    header{background:linear-gradient(135deg,var(--azul),#001a52);color:#fff;padding:16px}
+    main{flex:1;max-width:1100px;margin:16px auto;padding:0 16px;display:flex;gap:20px;flex-wrap:wrap}
+    .card{background:#fff;border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.06);padding:16px;flex:1 1 320px}
+    h1,h2,h3{margin:0 0 10px 0}
+    #wheelWrap{display:flex;flex-direction:column;align-items:center;gap:10px}
+    #wheel{width:320px;height:320px;border-radius:50%;border:6px solid #111;background:#fff;position:relative;overflow:hidden;transition:transform 5s cubic-bezier(.28,.76,0,1)}
+    #marker{width:0;height:0;border-left:18px solid transparent;border-right:18px solid transparent;border-bottom:32px solid #d11a2a;margin:0 auto;transform:translateY(4px)}
+    #participants{max-height:360px;overflow:auto;font-size:14px}
+    .pill{display:inline-block;background:#eef2ff;border:1px solid #d1d9ff;border-radius:999px;padding:4px 10px;font-size:12px;margin-right:6px;margin-bottom:6px}
+    .winner{background:#ecfff1;border:1px solid #84e3a5}
+    button{background:var(--azul);color:#fff;border:none;border-radius:10px;padding:10px 14px;font-weight:600;cursor:pointer}
+    button:disabled{opacity:.5;cursor:not-allowed}
+    .flex{display:flex;gap:8px;flex-wrap:wrap}
+    .small{font-size:12px;color:#64748b}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:6px;border-bottom:1px solid #eff2f7;text-align:left}
+    .tag{display:inline-block;padding:2px 6px;border-radius:6px;font-size:11px}
+    .tag.sold{background:#eef2ff}
+    #log{font-size:13px;max-height:230px;overflow:auto}
+  </style>
+</head>
+<body>
+<header>
+  <h1>Roleta — Halloween Azul Cargo 🎃</h1>
+  <p>Sorteio automático lendo direto do Firebase.</p>
+</header>
+<main>
+  <div class="card" style="max-width:360px">
+    <div id="marker"></div>
+    <div id="wheelWrap">
+      <div id="wheel"></div>
+      <button id="spinBtn" disabled>🎯 Girar</button>
+      <p class="small" id="status">Carregando Firebase…</p>
+    </div>
+  </div>
+  <div class="card" style="flex:2 1 380px">
+    <h3>Participantes carregados</h3>
+    <p class="small">Fonte: <code>/raffles/halloween2025/numbers</code> — pega só <strong>status="sold"</strong> (muda embaixo se quiser incluir pendentes).</p>
+    <label style="display:block;margin-bottom:6px">
+      <input type="checkbox" id="includePending"> Incluir <strong>pendentes</strong> no sorteio
+    </label>
+    <div id="participants">Nenhum participante.</div>
+  </div>
+  <div class="card" style="flex:1 1 280px">
+    <h3>Vencedores (até 7)</h3>
+    <ol id="winners" style="padding-left:20px"></ol>
+    <div class="flex">
+      <button id="clearWinners">Limpar vencedores</button>
+      <button id="reloadBtn">Recarregar dados</button>
+    </div>
+    <h4 style="margin-top:14px">Log</h4>
+    <div id="log"></div>
+  </div>
+</main>
+<script>
+const RAFFLE_URL = "https://azulcargo-halloween-default-rtdb.firebaseio.com/raffles/halloween2025/numbers.json";
+
+let rawData = {};            // JSON do firebase
+let pool = [];               // [{num, buyer, status}]
+let lastAngle = 0;
+let spinning = false;
+let winners = [];
+
+const wheelEl = document.getElementById('wheel');
+const spinBtn = document.getElementById('spinBtn');
+const statusEl = document.getElementById('status');
+const participantsEl = document.getElementById('participants');
+const winnersEl = document.getElementById('winners');
+const logEl = document.getElementById('log');
+const includePendingEl = document.getElementById('includePending');
+
+function log(msg){
+  const p = document.createElement('p');
+  p.textContent = msg;
+  logEl.prepend(p);
+}
+
+// monta o wheel (só visual — o sorteio é feito no JS)
+function renderWheel(names){
+  wheelEl.innerHTML = "";
+  const total = names.length || 1;
+  for(let i=0;i<total;i++){
+    const slice = document.createElement('div');
+    slice.style.position = 'absolute';
+    slice.style.width = '50%';
+    slice.style.height = '50%';
+    slice.style.top = '50%';
+    slice.style.left = '50%';
+    slice.style.transformOrigin = '0% 0%';
+    slice.style.transform = `rotate(${(360/total)*i}deg) skewY(${90-(360/total)}deg)`;
+    // cor alternada
+    slice.style.background = i%2===0 ? '#ffc72c' : '#0033a0';
+    wheelEl.appendChild(slice);
+  }
+}
+
+// lista na direita
+function renderParticipants(){
+  if(pool.length === 0){
+    participantsEl.textContent = "Nenhum participante elegível.";
+    return;
+  }
+  const frag = document.createDocumentFragment();
+  const table = document.createElement('table');
+  const thead = document.createElement('thead');
+  thead.innerHTML = "<tr><th>#</th><th>Nome</th><th>Status</th></tr>";
+  table.appendChild(thead);
+  const tb = document.createElement('tbody');
+  pool.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${String(p.num).padStart(3,'0')}</td>
+                    <td>${p.buyer || '—'}</td>
+                    <td><span class="tag ${p.status==='sold'?'sold':''}">${p.status}</span></td>`;
+    tb.appendChild(tr);
+  });
+  table.appendChild(tb);
+  frag.appendChild(table);
+  participantsEl.innerHTML = "";
+  participantsEl.appendChild(frag);
+}
+
+// carrega do firebase
+async function loadData(){
+  statusEl.textContent = "Carregando Firebase…";
+  try{
+    const resp = await fetch(RAFFLE_URL);
+    const data = await resp.json();
+    rawData = data || {};
+    buildPool();
+    statusEl.textContent = `Carregado: ${pool.length} participantes`;
+    spinBtn.disabled = pool.length === 0;
+    renderParticipants();
+    renderWheel(pool.map(p => p.buyer || ('#'+p.num)));
+  }catch(e){
+    console.error(e);
+    statusEl.textContent = "Erro ao carregar Firebase.";
+    log("Erro ao carregar: " + e.message);
+  }
+}
+
+function buildPool(){
+  const includePending = includePendingEl.checked;
+  pool = [];
+  for(const k in rawData){
+    const item = rawData[k];
+    if(!item) continue;
+    const st = item.status;
+    if(st === 'sold' || (includePending && st === 'pending')){
+      // evita adicionar quem já ganhou
+      const already = winners.find(w => w.num == k);
+      if(already) continue;
+      pool.push({
+        num: parseInt(k,10),
+        buyer: item.buyer || "",
+        status: st
+      });
+    }
+  }
+  // ordena pra ficar bonito
+  pool.sort((a,b)=>a.num - b.num);
+}
+
+// gira de fato
+function spin(){
+  if(spinning) return;
+  if(pool.length === 0){
+    alert("Sem participantes para sortear.");
+    return;
+  }
+  spinning = true;
+  spinBtn.disabled = true;
+
+  // escolhe um vencedor aleatório do pool
+  const winner = pool[Math.floor(Math.random()*pool.length)];
+  // guarda pra não repetir
+  winners.push(winner);
+
+  // remove do pool atual
+  pool = pool.filter(p => p.num !== winner.num);
+
+  // calcula ângulo aleatório
+  const extraSpins = 4; // voltas
+  const endAngle = lastAngle + 360*extraSpins + Math.floor(Math.random()*360);
+  wheelEl.style.transform = `rotate(${endAngle}deg)`;
+  lastAngle = endAngle;
+
+  // depois da animação, mostra
+  setTimeout(()=>{
+    addWinnerToList(winner);
+    renderParticipants();
+    renderWheel(pool.map(p => p.buyer || ('#'+p.num)));
+    statusEl.textContent = `Vencedor: #${String(winner.num).padStart(3,'0')} — ${winner.buyer || 'Sem nome'}`;
+    log(`🎉 Vencedor: #${String(winner.num).padStart(3,'0')} — ${winner.buyer || 'Sem nome'}`);
+    spinning = false;
+    // se ainda cabe mais (ex.: 7 prêmios), deixa girar de novo
+    if(winners.length < 7 && pool.length > 0){
+      spinBtn.disabled = false;
+    } else if (winners.length >= 7){
+      statusEl.textContent += " • 7 prêmios atingidos.";
+    }
+  }, 5300); // tempo da animação
+}
+
+function addWinnerToList(w){
+  const li = document.createElement('li');
+  li.innerHTML = `<strong>#${String(w.num).padStart(3,'0')}</strong> — ${w.buyer || 'Sem nome'} <span class="small">(${w.status})</span>`;
+  winnersEl.appendChild(li);
+}
+
+spinBtn.addEventListener('click', spin);
+document.getElementById('reloadBtn').addEventListener('click', ()=>{
+  loadData();
+  winners = [];
+  winnersEl.innerHTML = "";
+  log("Dados recarregados.");
+});
+document.getElementById('clearWinners').addEventListener('click', ()=>{
+  winners = [];
+  winnersEl.innerHTML = "";
+  buildPool();
+  renderParticipants();
+  renderWheel(pool.map(p => p.buyer || ('#'+p.num)));
+  spinBtn.disabled = pool.length === 0;
+  log("Lista de vencedores limpa.");
+});
+includePendingEl.addEventListener('change', ()=>{
+  buildPool();
+  renderParticipants();
+  renderWheel(pool.map(p => p.buyer || ('#'+p.num)));
+  spinBtn.disabled = pool.length === 0;
+  statusEl.textContent = `Carregado: ${pool.length} participantes`;
+});
+
+loadData();
+</script>
+</body>
+</html>
